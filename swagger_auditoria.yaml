@@ -1,0 +1,593 @@
+openapi: 3.1.0
+info:
+  title: API de Auditoría de Eventos
+  description: >-
+    API genérica para recibir, almacenar y consultar logs estructurados de eventos
+    provenientes de distintos servicios de un ecosistema, y entregar información
+    agregada para alimentar un dashboard de auditoría y monitoreo.
+  version: 1.0.0
+  contact:
+    name: Equipo de Desarrollo
+
+servers:
+  - url: http://localhost:8080
+    description: Entorno de desarrollo local
+  - url: https://api.midominio.cl
+    description: Entorno de producción (reemplazar por el dominio correspondiente)
+
+tags:
+  - name: Eventos
+    description: Ingesta y consulta de logs estructurados de eventos
+  - name: Dashboard
+    description: Métricas y series agregadas para visualizar la actividad del ecosistema
+
+paths:
+  /api/v1/events:
+    post:
+      tags:
+        - Eventos
+      summary: Registra un evento
+      description: Recibe un log estructurado enviado por un servicio del ecosistema.
+      operationId: ingestEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+      responses:
+        '202':
+          description: Evento recibido para su procesamiento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags:
+        - Eventos
+      summary: Lista eventos registrados
+      description: Retorna eventos con filtros opcionales y paginación.
+      operationId: listEvents
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/LogLevel'
+        - $ref: '#/components/parameters/ServiceName'
+        - $ref: '#/components/parameters/EventType'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Eventos obtenidos exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/events/batch:
+    post:
+      tags:
+        - Eventos
+      summary: Registra un lote de eventos
+      description: >-
+        Recibe múltiples logs estructurados en una sola petición. Es útil para
+        integraciones y procesos que envían grandes volúmenes de eventos.
+      operationId: ingestEventsBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventBatchRequest'
+      responses:
+        '202':
+          description: Lote recibido para su procesamiento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventBatchAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/events/{eventId}:
+    get:
+      tags:
+        - Eventos
+      summary: Obtiene un evento específico
+      description: Busca un evento utilizando su identificador único.
+      operationId: getEventById
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Evento encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/dashboard/summary:
+    get:
+      tags:
+        - Dashboard
+      summary: Obtiene un resumen de actividad
+      description: >-
+        Entrega métricas agregadas de los eventos registrados durante el período
+        indicado. Si no se especifica un período, el backend aplica su ventana
+        predeterminada.
+      operationId: getDashboardSummary
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Resumen del dashboard obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummaryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/dashboard/timeline:
+    get:
+      tags:
+        - Dashboard
+      summary: Obtiene la evolución temporal de los eventos
+      description: >-
+        Retorna conteos de eventos agrupados por intervalos de tiempo. De forma
+        opcional, permite separar las series por nivel de log o por servicio.
+      operationId: getDashboardTimeline
+      parameters:
+        - name: from
+          in: query
+          description: Inicio del período consultado, en formato ISO 8601.
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-30T00:00:00Z'
+        - name: to
+          in: query
+          description: Fin del período consultado, en formato ISO 8601.
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-30T23:59:59Z'
+        - name: interval
+          in: query
+          description: Tamaño de cada intervalo de agrupación.
+          required: false
+          schema:
+            type: string
+            enum: [minute, five_minutes, fifteen_minutes, hour, day]
+            default: hour
+        - name: group_by
+          in: query
+          description: Campo opcional para separar los resultados en distintas series.
+          required: false
+          schema:
+            type: string
+            enum: [none, level, service]
+            default: none
+      responses:
+        '200':
+          description: Serie temporal obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTimelineResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Identificador único del evento.
+      schema:
+        type: string
+      example: evt_01JBF8K7Q2M4X9
+
+    From:
+      name: from
+      in: query
+      required: false
+      description: Inicio del período de consulta, en formato ISO 8601.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-30T00:00:00Z'
+
+    To:
+      name: to
+      in: query
+      required: false
+      description: Fin del período de consulta, en formato ISO 8601.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-30T23:59:59Z'
+
+    LogLevel:
+      name: level
+      in: query
+      required: false
+      description: Filtra eventos por nivel de severidad.
+      schema:
+        $ref: '#/components/schemas/LogLevel'
+
+    ServiceName:
+      name: service
+      in: query
+      required: false
+      description: Filtra eventos por el nombre del servicio que los generó.
+      schema:
+        type: string
+
+    EventType:
+      name: event_type
+      in: query
+      required: false
+      description: Filtra eventos por su tipo o categoría.
+      schema:
+        type: string
+
+    RequestId:
+      name: request_id
+      in: query
+      required: false
+      description: Filtra eventos asociados a una petición global o transacción.
+      schema:
+        type: string
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Cantidad máxima de eventos por página.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Cursor recibido en la respuesta anterior para continuar la paginación.
+      schema:
+        type: string
+
+  schemas:
+    LogLevel:
+      type: string
+      description: Nivel de severidad del evento.
+      enum: [debug, info, warn, error, fatal]
+
+    EventRequest:
+      type: object
+      description: Datos estructurados enviados por el servicio que origina el evento.
+      required:
+        - timestamp
+        - level
+        - service
+        - event_type
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Fecha y hora en que ocurrió el evento, en formato ISO 8601.
+          example: '2026-10-30T14:30:00Z'
+        level:
+          $ref: '#/components/schemas/LogLevel'
+        service:
+          type: string
+          description: Nombre del servicio que generó el evento.
+          example: servicio-autenticacion
+        event_type:
+          type: string
+          description: Categoría o nombre del evento.
+          example: user_login
+        message:
+          type: string
+          description: Descripción legible del evento.
+          example: Inicio de sesión de usuario exitoso.
+        request_id:
+          type: string
+          description: Identificador para relacionar eventos de una misma petición.
+          example: req_8f31a2
+        trace_id:
+          type: string
+          description: Identificador de trazabilidad distribuida, si está disponible.
+          example: trace_31c9bd
+        source:
+          type: string
+          description: Componente o módulo que originó el evento.
+          example: auth-controller
+        metadata:
+          type: object
+          description: Datos adicionales específicos del evento.
+          additionalProperties: true
+          example:
+            user_id: 'user-123'
+            outcome: success
+
+    Event:
+      allOf:
+        - $ref: '#/components/schemas/EventRequest'
+        - type: object
+          required:
+            - event_id
+            - received_at
+          properties:
+            event_id:
+              type: string
+              description: Identificador asignado por el sistema al evento.
+              example: evt_01JBF8K7Q2M4X9
+            received_at:
+              type: string
+              format: date-time
+              description: Fecha y hora en que la API recibió el evento.
+              example: '2026-10-30T14:30:02Z'
+
+    EventBatchRequest:
+      type: object
+      required:
+        - events
+      properties:
+        events:
+          type: array
+          minItems: 1
+          description: Conjunto de eventos que se enviarán en una única petición.
+          items:
+            $ref: '#/components/schemas/EventRequest'
+
+    EventAcceptedResponse:
+      type: object
+      required:
+        - event_id
+        - status
+        - received_at
+      properties:
+        event_id:
+          type: string
+          description: Identificador asignado al evento recibido.
+          example: evt_01JBF8K7Q2M4X9
+        status:
+          type: string
+          enum: [accepted]
+          example: accepted
+        received_at:
+          type: string
+          format: date-time
+          example: '2026-10-30T14:30:02Z'
+
+    EventBatchAcceptedResponse:
+      type: object
+      required:
+        - batch_id
+        - status
+        - accepted_count
+        - received_at
+      properties:
+        batch_id:
+          type: string
+          description: Identificador asignado al lote recibido.
+          example: batch_01JBF8K7Q2M4X9
+        status:
+          type: string
+          enum: [accepted]
+          example: accepted
+        accepted_count:
+          type: integer
+          minimum: 0
+          description: Cantidad de eventos aceptados en el lote.
+          example: 250
+        received_at:
+          type: string
+          format: date-time
+          example: '2026-10-30T14:30:02Z'
+
+    EventListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        pagination:
+          type: object
+          required:
+            - limit
+          properties:
+            limit:
+              type: integer
+              example: 50
+            next_cursor:
+              type: [string, 'null']
+              description: Cursor para obtener la siguiente página; null cuando no hay más resultados.
+              example: next_page_cursor
+
+    DashboardSummaryResponse:
+      type: object
+      required:
+        - generated_at
+        - total_events
+        - by_level
+        - by_service
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+          description: Fecha y hora en que se generó el resumen.
+          example: '2026-10-30T14:35:00Z'
+        period:
+          type: object
+          description: Período considerado para calcular las métricas.
+          properties:
+            from:
+              type: [string, 'null']
+              format: date-time
+            to:
+              type: [string, 'null']
+              format: date-time
+        total_events:
+          type: integer
+          minimum: 0
+          description: Número total de eventos registrados en el período.
+          example: 12500
+        by_level:
+          type: array
+          description: Cantidad de eventos agrupados por nivel de severidad.
+          items:
+            $ref: '#/components/schemas/CountByKey'
+        by_service:
+          type: array
+          description: Cantidad de eventos agrupados por servicio de origen.
+          items:
+            $ref: '#/components/schemas/CountByKey'
+
+    CountByKey:
+      type: object
+      required:
+        - key
+        - count
+      properties:
+        key:
+          type: string
+          description: Nombre del nivel, servicio o categoría de agrupación.
+          example: info
+        count:
+          type: integer
+          minimum: 0
+          example: 8400
+
+    DashboardTimelineResponse:
+      type: object
+      required:
+        - interval
+        - series
+      properties:
+        period:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        interval:
+          type: string
+          enum: [minute, five_minutes, fifteen_minutes, hour, day]
+          example: hour
+        group_by:
+          type: string
+          enum: [none, level, service]
+          example: level
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSeries'
+
+    TimeSeries:
+      type: object
+      required:
+        - group
+        - points
+      properties:
+        group:
+          type: string
+          description: Valor de agrupación; por ejemplo, info, error o un nombre de servicio.
+          example: error
+        points:
+          type: array
+          items:
+            type: object
+            required:
+              - timestamp
+              - count
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+                example: '2026-10-30T14:00:00Z'
+              count:
+                type: integer
+                minimum: 0
+                example: 42
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: La solicitud contiene datos inválidos.
+        details:
+          type: [string, 'null']
+          example: El campo timestamp debe tener formato ISO 8601.
+
+  responses:
+    BadRequest:
+      description: Petición mal formada o parámetros inválidos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Los datos recibidos no cumplen con el esquema esperado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: No existe un evento con el identificador indicado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Error interno durante la recepción o consulta de eventos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
