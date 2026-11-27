@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"auditoria/models"
 )
 
 func TestHealthz(t *testing.T) {
@@ -51,6 +54,36 @@ func TestRouterRoutes(t *testing.T) {
 		mux.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
 			t.Errorf("esperaba status 200 para OPTIONS %s, obtuve %d", path, rec.Code)
+		}
+	}
+}
+
+func TestGetLogsPrueba(t *testing.T) {
+	mux := setupRouter()
+
+	for _, path := range []string{"/api/logs/prueba", "/api/v1/logs/prueba"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("esperaba status 200 para %s, obtuve %d", path, rec.Code)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "application/json" {
+			t.Errorf("esperaba Content-Type application/json para %s, obtuve %q", path, got)
+		}
+
+		var logs []models.LogPrueba
+		if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+			t.Fatalf("respuesta JSON inválida para %s: %v", path, err)
+		}
+		if logs == nil {
+			t.Errorf("esperaba una lista de logs para %s", path)
+		}
+		for _, log := range logs {
+			if !log.EsPrueba {
+				t.Errorf("el registro %s debe estar marcado como prueba", log.ID)
+			}
 		}
 	}
 }

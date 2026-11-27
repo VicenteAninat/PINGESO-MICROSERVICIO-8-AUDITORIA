@@ -1,15 +1,16 @@
-name: ejemplo-pingeso
+name: auditoria
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17.11@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
     container_name: postgres_db
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=tareas_db
+    # PostgreSQL local de Windows ya usa 5432; dentro del contenedor sigue en 5432.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,23 +25,34 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: go_backend
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:5180:8080"
     environment:
       - API_PORT=8080
       - API_ENV=dev
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tareas_db?sslmode=disable
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=http://localhost:5181
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    container_name: mailpit
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
   frontend:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: vue_frontend
+    container_name: react_frontend
     ports:
-      - "127.0.0.1:3000:8080"
+      - "127.0.0.1:5181:8080"
     depends_on:
       - backend
 

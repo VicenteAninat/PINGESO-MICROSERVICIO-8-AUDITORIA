@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"tarea-api/config"
-	"tarea-api/models"
+	"auditoria/config"
+	"auditoria/models"
 )
 
 func setCORS(w http.ResponseWriter) {

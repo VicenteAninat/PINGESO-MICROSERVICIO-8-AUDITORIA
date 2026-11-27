@@ -3,8 +3,8 @@
 Repositorio base del microservicio de gestión de tareas siguiendo los lineamientos técnicos del curso **DAS (Desarrollo de Microservicios)**.
 
 ### Enlaces de Evidencia
-* **Pipeline de CI (GitHub Actions):** [https://github.com/benbuselola/ejemplo-pingeso/actions](https://github.com/benbuselola/ejemplo-pingeso/actions)
-* **Panel de SonarQube:** [http://localhost:9000/dashboard?id=ejemplo-pingeso](http://localhost:9000/dashboard?id=ejemplo-pingeso) (Clave del proyecto: `ejemplo-pingeso`)
+* **Pipeline de CI (GitHub Actions):** [https://github.com/PINGESO-CIVIL/Auditoria/actions](https://github.com/PINGESO-CIVIL/Auditoria/actions)
+* **Panel de SonarQube:** [http://localhost:9000/dashboard?id=auditoria](http://localhost:9000/dashboard?id=auditoria) (Clave del proyecto: `auditoria`)
 
 ---
 
@@ -19,7 +19,7 @@ Repositorio base del microservicio de gestión de tareas siguiendo los lineamien
 El proyecto implementa una arquitectura desacoplada basada en contratos (**API-First**) y principios de **Clean Architecture** y **Shift-Left Security**.
 
 ```text
-ejemplo-pingeso/
+auditoria/
 ├── apps/
 │   ├── api/                          # Backend en Go
 │   │   ├── config/                   # Conexión e inicialización de PostgreSQL (pgx/v5)
@@ -36,12 +36,11 @@ ejemplo-pingeso/
 │   │   ├── go.sum                    # Checksums verificados de dependencias
 │   │   ├── main.go                   # Punto de entrada de la API (/healthz, /readyz, /api/tareas)
 │   │   └── main_test.go              # Pruebas de liveness, readiness y enrutamiento
-│   └── web/                          # Frontend SPA (Vue.js / Vite)
-│       ├── src/                      # Componentes Vue y estilos
+│   └── web/                          # Frontend SPA (React / Vite)
+│       ├── src/                      # Componentes React y estilos
 │       ├── Dockerfile                # Multi-stage build con nginx-unprivileged (USER 101:101)
 │       ├── nginx.conf                # Configuración Nginx escuchando en puerto 8080
-│       ├── package.json              # Dependencias y scripts de frontend
-│       └── package-lock.json         # Lockfile de dependencias npm
+│       └── package.json              # Dependencias y scripts de frontend
 ├── contracts/
 │   └── openapi.yaml                  # Contrato OpenAPI 3.1 publicado (API-First, con /healthz y /readyz)
 ├── docs/
@@ -52,8 +51,13 @@ ejemplo-pingeso/
 ├── .dockerignore                     # Archivos excluidos del contexto Docker (.git, .env*, coverage.out)
 ├── .env.example                      # Plantilla de variables de entorno con valores replace-with-*
 ├── .gitignore                        # Exclusiones de Git (.env, coverage.out, .scannerwork/)
+├── .nvmrc                            # Versión de Node.js fijada
+├── .npmrc                            # Configuración npm compatible con pnpm
 ├── .trivyignore.yaml                 # Excepciones autorizadas para Trivy (con CVE y fecha)
 ├── docker-compose.yaml               # Orquestación local (PostgreSQL 17, API y Web con name fijo)
+├── package.json                      # Gestor pnpm y versión de Node.js del workspace
+├── pnpm-lock.yaml                    # Lockfile reproducible del workspace
+├── pnpm-workspace.yaml               # Workspace y catálogo de dependencias frontend
 ├── sonar-project.properties          # Configuración SonarQube (rutas de cobertura y exclusión de tests)
 └── README.md                         # Documentación general y evidencias del proyecto
 ```
@@ -66,24 +70,25 @@ ejemplo-pingeso/
 | :--- | :--- | :--- |
 | **Backend** | Go `1.26.10` | `go 1.26.0` con `toolchain go1.26.10` para subsanar vulnerabilidades de la biblioteca estándar (`crypto/x509` y `net/http`). |
 | **Driver BD** | `github.com/jackc/pgx/v5` `v5.10.0` | Versión exacta exigida en la pauta oficial, libre de vulnerabilidades críticas. |
-| **Frontend** | Vue 3 + Vite | Servido mediante Nginx en contenedor no privilegiado (`UID 101:101`) en puerto interno `8080`. |
+| **Frontend** | React `19.2.8` + Vite `8.1.5` | Dependencias fijadas en el catálogo pnpm; servido por Nginx no privilegiado (`UID 101:101`) en `8080`. |
 | **Base de Datos** | PostgreSQL `17-alpine` | Contenedor aislado en Compose con healthcheck `pg_isready` y migración completa desde MongoDB. |
 | **Contrato** | OpenAPI `3.1.0` | Especificación estricta de rutas, parámetros, respuestas de error RFC 9457 y endpoints `/healthz` y `/readyz`. |
 | **Observabilidad** | Healthchecks nativos | `GET /healthz` (liveness del proceso) y `GET /readyz` (readiness verificando conexión activa a PostgreSQL). |
 | **Contenedores** | Docker Multi-Stage | Puertos internos siempre en `8080`. Imágenes ejecutadas con usuarios sin privilegios (`UID 10001:10001` y `UID 101:101`). |
-| **Resiliencia** | Modos de Falla | Matriz documentada en [`docs/modos-de-falla.md`](file:///home/benja/Escritorio/ejemplo-pingeso/docs/modos-de-falla.md) con timeouts explícitos de 5s. |
+| **Resiliencia** | Modos de Falla | Matriz documentada en [`docs/modos-de-falla.md`](./docs/modos-de-falla.md) con timeouts explícitos de 5s. |
 
 ---
 
 ## 4. Endpoints y Contrato de la API
 
-Los endpoints publicados cumplen con el contrato OpenAPI 3.1 definido en [`contracts/openapi.yaml`](file:///home/benja/Escritorio/ejemplo-pingeso/contracts/openapi.yaml):
+Los endpoints publicados cumplen con el contrato OpenAPI 3.1 definido en [`contracts/openapi.yaml`](./contracts/openapi.yaml):
 
 | Método | Ruta | Propósito | Autenticación | Códigos de Respuesta |
 | :--- | :--- | :--- | :---: | :--- |
 | `GET` | `/healthz` | **Liveness Probe**: Indica si el proceso de la API está vivo. | No | `200 OK` |
 | `GET` | `/readyz` | **Readiness Probe**: Verifica la conexión activa con PostgreSQL con timeout de 2s. | No | `200 OK`, `503 Service Unavailable` |
 | `GET` | `/api/tareas` | Retorna la lista de todas las tareas almacenadas. | No | `200 OK`, `500 Internal Server Error` |
+| `GET` | `/api/v1/logs/prueba` | Retorna los últimos 100 logs generados cada 2 segundos en memoria (no persistidos); la interfaz muestra 10 por página. | No | `200 OK` |
 | `POST` | `/api/tareas` | Crea una nueva tarea (valida `titulo` no vacío y genera UUID v4). | No | `201 Created`, `400 Bad Request`, `500 Internal Server Error` |
 | `PUT` | `/api/tareas/{id}` | Actualiza el estado (`completada`) o título de una tarea existente. | No | `200 OK`, `400 Bad Request`, `404 Not Found`, `500 Error` |
 | `DELETE` | `/api/tareas/{id}` | Elimina una tarea de la base de datos por su identificador UUID. | No | `200 OK`, `404 Not Found`, `500 Internal Server Error` |
@@ -95,7 +100,7 @@ Todos los errores retornan un payload estructurado conforme a **RFC 9457** (`app
 
 ## 5. Pipeline de Integración Continua (CI)
 
-El archivo [`.github/workflows/ci.yml`](file:///home/benja/Escritorio/ejemplo-pingeso/.github/workflows/ci.yml) implementa las verificaciones automáticas de seguridad y calidad en cada push o pull request:
+El archivo [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) implementa las verificaciones automáticas de seguridad y calidad en cada push o pull request:
 
 ```mermaid
 flowchart LR
@@ -132,7 +137,7 @@ flowchart LR
 ### 6.1. Reglas y Umbrales
 * **Tolerancia Cero**: Falla el pipeline (código de salida `1`) ante cualquier vulnerabilidad `HIGH` o `CRITICAL` que disponga de solución (`--ignore-unfixed`).
 * **Misconfiguration (`DS-0002` / `DL3066`)**: Exige que todo `Dockerfile` declare explícitamente una instrucción `USER` con un identificador numérico no root (`USER 10001:10001` y `USER 101:101`).
-* **Excepciones**: Si una vulnerabilidad no tiene parche o es un falso positivo justificado, se registra en [`.trivyignore.yaml`](file:///home/benja/Escritorio/ejemplo-pingeso/.trivyignore.yaml) indicando CVE, justificación técnica y fecha de expiración aprobada.
+* **Excepciones**: Si una vulnerabilidad no tiene parche o es un falso positivo justificado, se registra en [`.trivyignore.yaml`](./.trivyignore.yaml) indicando CVE, justificación técnica y fecha de expiración aprobada.
 
 ### 6.2. Ejecución Local de Trivy
 
@@ -196,7 +201,7 @@ docker run -d --name sonarqube -p 9000:9000 sonarqube:community
 ### 7.2. Configuración del Proyecto y Token
 
 1. En la barra superior, pulsa en **Create Project** > **Manually**.
-2. Asigna la clave del proyecto (**Project Key**): `ejemplo-pingeso`.
+2. Asigna la clave del proyecto (**Project Key**): `auditoria`.
 3. Selecciona la opción **GitHub Actions**.
 4. En el paso 1 (*Create GitHub Secrets*), pulsa **Generate a token**:
    - Nombre: `github-actions-token`.
@@ -231,10 +236,10 @@ En tu repositorio de GitHub:
 
 ### 7.5. Configuración de Cobertura y Quality Gate
 
-El archivo [`sonar-project.properties`](file:///home/benja/Escritorio/ejemplo-pingeso/sonar-project.properties) separa el código de producción de las pruebas y define las rutas de reporte:
+El archivo [`sonar-project.properties`](./sonar-project.properties) separa el código de producción de las pruebas y define las rutas de reporte:
 
 ```properties
-sonar.projectKey=ejemplo-pingeso
+sonar.projectKey=auditoria
 sonar.sources=apps/api,apps/web/src
 sonar.tests=apps/api
 sonar.test.inclusions=**/*_test.go
@@ -274,7 +279,7 @@ go run github.com/oasdiff/oasdiff@v1.35.0 breaking contracts/openapi.yaml contra
 
 ### 9.1. Variables de Entorno
 
-Copia el archivo de plantilla [`.env.example`](file:///home/benja/Escritorio/ejemplo-pingeso/.env.example) a `.env`:
+Copia el archivo de plantilla [`.env.example`](./.env.example) a `.env`:
 
 ```bash
 cp .env.example .env
@@ -292,7 +297,7 @@ cd ../..
 
 ### 9.3. Levantar Contenedores con Docker Compose
 
-Para levantar el ecosistema completo (base de datos PostgreSQL, backend API y frontend Vue):
+Para levantar el ecosistema completo (base de datos PostgreSQL, backend API y frontend React):
 
 ```bash
 # Construir y levantar contenedores en segundo plano
@@ -304,4 +309,4 @@ docker compose logs -f
 
 * **Frontend SPA**: `http://localhost:3000`
 * **Backend API**: `http://localhost:8080` (endpoints `/healthz`, `/readyz`, `/api/tareas`)
-* **PostgreSQL**: `127.0.0.1:5432` (Base de datos: `tareas_db`, Usuario: `postgres`)
+* **PostgreSQL**: `127.0.0.1:5433` (Base de datos: `tareas_db`, Usuario: `postgres`)

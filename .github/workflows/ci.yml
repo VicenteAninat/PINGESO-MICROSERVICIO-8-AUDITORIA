@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -47,7 +47,7 @@ jobs:
           cd apps/api
           go test -v -coverprofile=../../coverage.out ./...
           cd ../..
-          sed -i 's|tarea-api/|apps/api/|g' coverage.out
+          sed -i 's|auditoria/|apps/api/|g' coverage.out
       - name: Sanitizar variables SonarQube
         run: |
           CLEAN_URL=$(echo "${{ secrets.SONAR_HOST_URL }}" | tr -d '[:space:]')

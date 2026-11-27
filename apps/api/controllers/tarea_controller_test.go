@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"tarea-api/config"
-	"tarea-api/models"
+	"auditoria/config"
+	"auditoria/models"
 )
 
 func isDBAvailable() bool {

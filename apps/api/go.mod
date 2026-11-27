@@ -1,4 +1,4 @@
-module tarea-api
+module auditoria
 
 go 1.26.0
 

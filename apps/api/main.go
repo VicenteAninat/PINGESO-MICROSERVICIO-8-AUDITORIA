@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"tarea-api/config"
-	"tarea-api/controllers"
+	"auditoria/config"
+	"auditoria/controllers"
 )
 
 func setupRouter() *http.ServeMux {
@@ -19,6 +19,8 @@ func setupRouter() *http.ServeMux {
 	mux.HandleFunc("GET /api/v1/tareas", controllers.GetTareas)
 	mux.HandleFunc("POST /api/v1/tareas", controllers.CreateTarea)
 	mux.HandleFunc("OPTIONS /api/v1/tareas", controllers.GetTareas)
+	mux.HandleFunc("GET /api/logs/prueba", controllers.GetLogsPrueba)
+	mux.HandleFunc("GET /api/v1/logs/prueba", controllers.GetLogsPrueba)
 
 	// Healthchecks según estándar de la asignatura (sección 4 y 8)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +51,12 @@ func main() {
 	// 2. Definir rutas
 	mux := setupRouter()
 
-	// 3. Levantar servidor
+	// 3. Emitir logs de prueba para la pestaña del frontend
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	controllers.StartGeneradorLogsPrueba(ctx)
+
+	// 4. Levantar servidor
 	fmt.Println("Servidor corriendo en el puerto 8080 (PostgreSQL)")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Error al iniciar el servidor: %v", err)

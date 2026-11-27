@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: API Gestor de Tareas
-  description: Microservicio de ejemplo para la gestión de tareas, diseñado para enseñar el estándar OpenAPI y la integración con Go, Vue y PostgreSQL.
+  description: Microservicio de ejemplo para la gestión de tareas, diseñado para enseñar el estándar OpenAPI y la integración con Go, React y PostgreSQL.
   version: 1.0.0
   contact:
     name: Equipo Docente
@@ -15,6 +15,8 @@ servers:
 tags:
   - name: Tareas
     description: Operaciones CRUD completas para la entidad Tareas
+  - name: Logs
+    description: Registros de prueba emitidos por el backend
   - name: Salud
     description: Verificaciones de salud y observabilidad mínima
 
@@ -152,6 +154,22 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/v1/logs/prueba:
+    get:
+      tags:
+        - Logs
+      summary: Obtiene registros de prueba del backend
+      description: Devuelve los últimos 100 registros de prueba, generados en memoria cada dos segundos. No son persistidos.
+      responses:
+        '200':
+          description: Snapshot de los registros de prueba más recientes; puede estar vacío durante los primeros segundos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogPrueba'
+
 components:
   parameters:
     TareaId:
@@ -194,6 +212,29 @@ components:
               type: string
               format: date-time
               example: "2026-10-30T14:30:00Z"
+
+    LogPrueba:
+      type: object
+      required: [id, fecha, nivel, servicio, mensaje, es_prueba]
+      properties:
+        id:
+          type: string
+          example: LOG-PRUEBA-003
+        fecha:
+          type: string
+          format: date-time
+        nivel:
+          type: string
+          enum: [DEBUG, INFO, WARN, ERROR]
+        servicio:
+          type: string
+          example: api
+        mensaje:
+          type: string
+          example: Solicitud de prueba procesada correctamente
+        es_prueba:
+          type: boolean
+          const: true
 
     ErrorEstandar:
       type: object

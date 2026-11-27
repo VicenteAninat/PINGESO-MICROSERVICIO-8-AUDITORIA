@@ -1,5 +1,17 @@
-# Vue 3 + Vite
+# React + Vite
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+La SPA usa React y Vite dentro del workspace pnpm del repositorio. **Vista general**
+muestra datos simulados; **Logs de prueba** consulta `GET /api/v1/logs/prueba`, que
+devuelve registros generados por el backend cada 2 segundos. La vista consulta la API
+cada segundo, muestra 10 registros por página y conserva en memoria los registros más
+recientes; no es una bitácora persistente. El backend limita la muestra a 100 registros.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+Desde la raíz del repositorio:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter frontend dev
+```
+
+El servidor de desarrollo reenvía `/api` al backend local publicado en `http://localhost:5180`.
+Para compilar la aplicación, ejecuta `pnpm --filter frontend build`.
